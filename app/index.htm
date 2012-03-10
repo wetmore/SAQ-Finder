@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SAQ Finder</title>
+<!--    <link href="style.css" media="all" rel="stylesheet" type="text/css"/> -->
+    <script src="libs/json2.js"></script>
+    <script src="libs/jquery-1.5.js"></script>
+    <script src="libs/underscore-1.1.6.js"></script>
+    <script src="libs/backbone.js"></script>
+    <script src="libs/backbone-localstorage.js"></script>
+    <script type="text/javascript" 
+            src="http://maps.googleapis.com/maps/api/js?sensor=true"></script>
+    <script src="app.js"></script>
+  </head>
+  <body>
+
+    <!-- app interface -->
+
+    <div id="app">
+      
+      <div class="title">
+        <h1>SAQ Finder</h1>
+      </div>
+      
+      <div class="content">
+        <div id="search">
+              <input id="address-input" placeholder="Where are you?" type="text" />
+              <input id="find" type="button" value="g"/>
+        </div>
+        
+        <div id="results">
+          <ul id="results-list"></ul>
+        </div>
+      </div>
+    </div>
+    
+    <!-- templates -->
+    
+    <script type="text/template" id="store-template">
+      <div class="store">
+        <div class="display">
+          <div class="store-info"></div>
+        </div>
+      </div>
+    </script>
+
+  </body>
+</html>
