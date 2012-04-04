@@ -96,7 +96,7 @@ $(function() {
                 console.log(results[0].formatted_address);
                 self.create(results[0].formatted_address);
               } else {
-                console.log("failed due to "+status);
+                console.log("failed due to " + status);
               }
             }
           });
@@ -128,7 +128,7 @@ $(function() {
       text = "address="+text;
       $.ajax({
         type: "POST",
-        url: "cgi-bin/geo.php",
+        url: "scripts/geo.php",
         data: text,
         success: function(response, textStatus, jqXHR) {
           console.log(response);
