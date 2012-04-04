@@ -11,12 +11,31 @@
     <script type="text/javascript" 
             src="http://maps.googleapis.com/maps/api/js?sensor=true"></script>
     <script src="app.js"></script>
+    <style type="text/css">
+      * {
+        padding: 0;
+        margin: 0;
+      }
+      html { height: 100% }
+      body { height: 100% }
+      #map { position: absolute; height: 100%; width: 80%; right: 0px; top: 0px }
+      #app {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+      }
+      #find {
+        padding: 10px;
+      }
+      .content {
+      } 
+    </style>
   </head>
   <body>
 
     <!-- app interface -->
 
-    <div id="app">
+    <div id="app" style="">
       
       <div class="title">
         <h1>SAQ Finder</h1>
@@ -34,6 +53,8 @@
       </div>
     </div>
     
+    <div id="map"></div>
+
     <!-- templates -->
     
     <script type="text/template" id="store-template">

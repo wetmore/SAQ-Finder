@@ -50,7 +50,8 @@ $(function() {
       var hours = this.model.get('times')[new Date().getDay()];
       var hoursInfo = hours.open + ' - ' + hours.close;
       var text = this.model.get('type') + ': ' + hoursInfo + (this.model.get('open')?'':' (closed)');
-      this.$('.store-info').text(text);
+      // TODO: comment me
+      ((this.$)('.store-info')).text(text);
     },
     showDetails: function() {
       console.log("show details");
@@ -59,6 +60,59 @@ $(function() {
     },
     remove: function() {
       $(this.el).remove();
+    }
+  });
+
+  //Map view
+
+  window.MapView = Backbone.View.extend({
+    el: $("#map"),
+    markers: [],
+    locMarker: null,
+    initialize: function() {
+      Stores.bind('add', this.addStoreMarker, this);
+      Stores.bind('remove', this.remStoreMarker, this);
+      App.bind('locateStores', this.addLocMarker, this);
+      var options = {
+        center: new google.maps.LatLng(45.509475, -73.577328),
+        zoom: 14,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      };
+      this.map = new google.maps.Map(this.el[0], options);
+    },
+    render: function() {
+      return this;
+    },
+    addLocMarker: function(pos) {
+      if (this.locMarker !== null)
+        this.locMarker.setMap();
+      this.locMarker = new google.maps.Marker({
+        position: new google.maps.LatLng(pos[0], pos[1]),
+        map: this.map,
+        animation: google.maps.Animation.BOUNCE
+      });
+      this.map.panTo(this.locMarker.getPosition());
+    },
+    addStoreMarker: function(store) {
+      this.markers.push(new google.maps.Marker({
+        position: new google.maps.LatLng(store.get('lat'), store.get('long')),
+        map: this.map
+      }));
+      var lastIndex = this.markers.length - 1;
+      this.markers[lastIndex].store = store;
+      google.maps.event.addListener(this.markers[lastIndex], 'click', this.selectMarker);
+    },
+    remStoreMarker: function(store) {
+      var i;
+      for (i = 0; i < this.markers.length; i++) {
+        if (this.markers[i].store === store) {
+          this.markers[i].setMap();
+          break;
+        }
+      }
+      this.markers.splice(i, 1);
+    },
+    selectMarker: function() {
     }
   });
 
@@ -71,10 +125,9 @@ $(function() {
       this.input = this.$("#address-input");
       Stores.bind('add', this.addOne, this);
       Stores.bind('all', this.render, this);
-      
     },
     render: function() {
-      console.log(Stores.length);
+      //console.log(Stores.length);
     },
     addOne: function(store) {
       var view = new StoreView({model: store});
@@ -124,6 +177,7 @@ $(function() {
     },
     create: function(text) {
       this.clear();
+      var self = this;
       console.log("requesting address: "+text);
       text = "address="+text;
       $.ajax({
@@ -140,8 +194,10 @@ $(function() {
             console.log("other issue");
           } else {
             var responseObj = $.parseJSON(response);
+            console.log(self);
+            self.trigger('locateStores', responseObj.splice(0,1)[0]);
             for (var x in responseObj) {
-              Stores.create( responseObj[x] );
+              Stores.create(responseObj[x]);
             }
           }
         },
@@ -159,4 +215,5 @@ $(function() {
   });
 
   window.App = new AppView;
+  window.Map = new MapView;
 });
