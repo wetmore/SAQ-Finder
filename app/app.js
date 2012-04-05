@@ -28,7 +28,6 @@ $(function() {
     model: Saq,
     localStorage: new Store('stores'),
     these: function() {
-      //hacky old way --> return this.filter(function(e){ return true });
       return $.extend(true, [], this.models);
     }
   });
@@ -64,6 +63,7 @@ $(function() {
         _.each(Stores.these(), function(store) {
           if (store !== this.model)
             store.set({selected: false});
+            
         });
         Map.selectStoreMarker(this.model);
       }
@@ -73,28 +73,57 @@ $(function() {
     }
   });
 
-  //Store infor view (used in popup info pane on map)
+  //Store info view (used in popup info pane on map)
   window.StoreInfo = Backbone.View.extend({
     template: null,
+    timeInt: null,
+    timeInfo: 'empty',
     initialize: function() {
-      this.render();
-      console.log(this.model);
+      var self = this;
+      // every 20 seconds, check if the store is near closing or opening.
+      var checkCriticalTimes = function() {
+        var today = new Date();
+        var open = self.model.get('times')[today.getDay()].open;
+        var close = self.model.get('times')[today.getDay()].close;
+        var openHr = open.split(':')[0];
+        var openMin = open.split(':')[1];
+        var closeHr = close.split(':')[0];
+        var closeMin = close.split(':')[1];
+        var curHr = today.getHours();
+        var curMin = today.getMinutes();
+        var mins = function(hr, min) {
+          return parseInt(hr) * 60 + parseInt(min);
+        };
+        var minsToClose = mins(closeHr, closeMin) - mins(curHr, curMin);
+        if (self.model.get('open') && minsToClose < 8 * 60) {
+          self.timeInfo = 'closes in ' + Math.floor(minsToClose / 60) + ':' + minsToClose % 60;
+          self.render(self);
+        }
+        var minsToOpen = mins(curHr, curMin) - mins(openHr, openMin);
+        if (!self.model.get('open') && minsToOpen < 1 * 60) {
+          self.timeInfo = 'opens in ' + Math.floor(minsToOpen / 60) + ':' + minsToOpen % 60;
+          self.render(self);
+        }
+      }(); // execute immediately
+      this.timeInt = setInterval(checkCriticalTimes, 20000);
     },
-    render: function() {
+    render: function(ctx) {
       var variables = {
-        storeType: this.model.get('type'),
-        storePhone: this.model.get('phone'),
-        storeTimeInfo: ''
+        storeType: ctx.model.get('type'),
+        storePhone: ctx.model.get('phone'),
+        storeTimeInfo: ctx.timeInfo
       }
       
       this.template = _.template($('#infopane-template').html(), variables),
       this.el.html(this.template);
+      return this;
     }
   });
 
   //Map view
   window.MapView = Backbone.View.extend({
     el: $('#map'),
+    view: null,
     markers: {},
     locMarker: null,
     initialize: function() {
@@ -146,7 +175,10 @@ $(function() {
     },
     selectStoreMarker: function(store) {
       this.map.panTo(this.markers[store.id].getPosition());
-      var view = new StoreInfo({model: store, el: $('#infopane')});
+      if (this.view !== null) {
+        clearInterval(this.view.timeInt);
+      }
+      this.view = new StoreInfo({model: store, el: $('#infopane')});
     }
   });
 
