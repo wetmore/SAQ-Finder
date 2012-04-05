@@ -79,6 +79,7 @@ $(function() {
     timeInt: null,
     timeInfo: 'empty',
     initialize: function() {
+      $(this.el).hide();
       var self = this;
       // every 20 seconds, check if the store is near closing or opening.
       var checkCriticalTimes = function() {
@@ -96,12 +97,16 @@ $(function() {
         };
         var minsToClose = mins(closeHr, closeMin) - mins(curHr, curMin);
         if (self.model.get('open') && minsToClose < 8 * 60) {
-          self.timeInfo = 'closes in ' + Math.floor(minsToClose / 60) + ':' + minsToClose % 60;
+          var hours = Math.floor(minsToClose / 60);
+          var min = minsToClose % 60;
+          self.timeInfo = 'Closes in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render(self);
         }
         var minsToOpen = mins(curHr, curMin) - mins(openHr, openMin);
         if (!self.model.get('open') && minsToOpen < 1 * 60) {
-          self.timeInfo = 'opens in ' + Math.floor(minsToOpen / 60) + ':' + minsToOpen % 60;
+          var hours = Math.floor(minsToOpen / 60);
+          var min = minsToOpen % 60;
+          self.timeInfo = 'Opens in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render(self);
         }
       }(); // execute immediately
@@ -123,6 +128,7 @@ $(function() {
   //Map view
   window.MapView = Backbone.View.extend({
     el: $('#map'),
+    infoWindow: new google.maps.InfoWindow({}),
     view: null,
     markers: {},
     locMarker: null,
@@ -178,7 +184,12 @@ $(function() {
       if (this.view !== null) {
         clearInterval(this.view.timeInt);
       }
+      if (this.infoWindow !== null) {
+        this.infoWindow.close();
+      }
       this.view = new StoreInfo({model: store, el: $('#infopane')});
+      this.infoWindow.setContent($('#infopane').html());
+      this.infoWindow.open(this.map, this.markers[store.id]);
     }
   });
 
@@ -247,6 +258,7 @@ $(function() {
       this.input.val('');
     },
     create: function(text) {
+      $('#find').attr('disabled', true);
       this.clear();
       var self = this;
       console.log('requesting address: '+text);
