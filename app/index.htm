@@ -10,6 +10,7 @@
     <script src="libs/backbone-localstorage.js"></script>
     <script type="text/javascript" 
             src="http://maps.googleapis.com/maps/api/js?sensor=true"></script>
+    <script src="libs/styledmarker.js"></script>
     <script src="app.js"></script>
     <style type="text/css">
       * {
@@ -44,7 +45,7 @@
       <div class="content">
         <div id="search">
               <input id="address-input" placeholder="Where are you?" type="text" />
-              <input id="find" type="button" value="g"/>
+              <input id="find" type="button" value="Find Me"/>
         </div>
         
         <div id="results">
@@ -52,6 +53,8 @@
         </div>
       </div>
     </div>
+
+    <div id="infopane"></div>
     
     <div id="map"></div>
 
@@ -65,5 +68,17 @@
       </div>
     </script>
 
+    <script type="text/template" id="infopane-template">
+      <div class="infopane">
+        <span class="title">SAQ <%= storeType %></span>
+        <div class="info-body">
+          Phone: <%= storePhone %>
+          <%= storeTimeInfo %>
+          <div class="times">
+            
+          </div>
+        </div>
+      </div>
+    </script>
   </body>
 </html>

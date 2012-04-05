@@ -4,26 +4,29 @@ $(function() {
   window.Saq = Backbone.Model.extend({
     initialize: function() {
       this.checkIfOpen();
+      this.set({selected: false});
     },
     checkIfOpen: function() {
       var today = new Date();
       var open = this.get('times')[today.getDay()].open;
       var close = this.get('times')[today.getDay()].close;
-      var hr = today.getHours();
-      var min = today.getMinutes();
-      var isOpen = ( (hr > open.split(':')[0] || 
-                         (hr == open.split(':')[0] && min >= open.split(':')[1])) &&
-                         (hr < close.split(':')[0] || 
-                         (hr == close.split(':')[0] && min < close.split(':')[1]))
+      var openHr = open.split(':')[0];
+      var openMin = open.split(':')[1];
+      var closeHr = close.split(':')[0];
+      var closeMin = close.split(':')[1];
+      var curHr = today.getHours();
+      var curMin = today.getMinutes();
+      var isOpen = ((curHr > openHr || (curHr == openHr && curMin >= openMin)) &&
+                    (curHr < closeHr || (curHr == closeHr && curMin < closeMin))
                    );
-      this.set({ open: isOpen });
+      this.set({open: isOpen});
     }
   });
 
   //Store List Collection
   window.StoreList = Backbone.Collection.extend({
     model: Saq,
-    localStorage: new Store("stores"),
+    localStorage: new Store('stores'),
     these: function() {
       //hacky old way --> return this.filter(function(e){ return true });
       return $.extend(true, [], this.models);
@@ -34,11 +37,11 @@ $(function() {
   
   //Store view
   window.StoreView = Backbone.View.extend({
-    tagName: "li",
+    tagName: 'li',
     template: _.template($('#store-template').html()),
-    events: { "click div.store-info" : "showDetails" },
+    events: { 'click div.store-info' : 'showDetails' },
     initialize: function() {
-      console.log("created store view");
+      this.model.bind('change:selected', this.handleSelection, this);
       this.model.bind('destroy', this.remove, this);
     },
     render: function() {
@@ -54,20 +57,45 @@ $(function() {
       ((this.$)('.store-info')).text(text);
     },
     showDetails: function() {
-      console.log("show details");
-      this.model.checkIfOpen();
-      console.log(this.model.get('open'));
+      this.model.set({'selected': true});
+    },
+    handleSelection: function() {
+      if (this.model.get('selected') === true) {
+        _.each(Stores.these(), function(store) {
+          if (store !== this.model)
+            store.set({selected: false});
+        });
+        Map.selectStoreMarker(this.model);
+      }
     },
     remove: function() {
       $(this.el).remove();
     }
   });
 
-  //Map view
+  //Store infor view (used in popup info pane on map)
+  window.StoreInfo = Backbone.View.extend({
+    template: null,
+    initialize: function() {
+      this.render();
+      console.log(this.model);
+    },
+    render: function() {
+      var variables = {
+        storeType: this.model.get('type'),
+        storePhone: this.model.get('phone'),
+        storeTimeInfo: ''
+      }
+      
+      this.template = _.template($('#infopane-template').html(), variables),
+      this.el.html(this.template);
+    }
+  });
 
+  //Map view
   window.MapView = Backbone.View.extend({
-    el: $("#map"),
-    markers: [],
+    el: $('#map'),
+    markers: {},
     locMarker: null,
     initialize: function() {
       Stores.bind('add', this.addStoreMarker, this);
@@ -84,45 +112,51 @@ $(function() {
       return this;
     },
     addLocMarker: function(pos) {
+      var self = this;
       if (this.locMarker !== null)
         this.locMarker.setMap();
-      this.locMarker = new google.maps.Marker({
+      this.locMarker = new StyledMarker({
+        styleIcon: new StyledIcon(StyledIconTypes.MARKER, {color: '6cc0e5'}),
         position: new google.maps.LatLng(pos[0], pos[1]),
         map: this.map,
-        animation: google.maps.Animation.BOUNCE
+        draggable: true
+      });
+      google.maps.event.addListener(this.locMarker, 'dragend', function() {
+        var ltlng = self.locMarker.getPosition();
+        App.create(ltlng.lat() + ',' + ltlng.lng());
       });
       this.map.panTo(this.locMarker.getPosition());
     },
     addStoreMarker: function(store) {
-      this.markers.push(new google.maps.Marker({
+      var self = this;
+      var markColor = store.get('open') ? '8ab846' : 'fb4f4f';
+      this.markers[store.id] = new StyledMarker({
+        styleIcon: new StyledIcon(StyledIconTypes.MARKER, {color: markColor}),
         position: new google.maps.LatLng(store.get('lat'), store.get('long')),
         map: this.map
-      }));
-      var lastIndex = this.markers.length - 1;
-      this.markers[lastIndex].store = store;
-      google.maps.event.addListener(this.markers[lastIndex], 'click', this.selectMarker);
+      });
+      this.markers[store.id].associatedStore = store;
+      google.maps.event.addListener(this.markers[store.id], 'click', function() {
+        store.set({'selected': true});
+      });
     },
     remStoreMarker: function(store) {
-      var i;
-      for (i = 0; i < this.markers.length; i++) {
-        if (this.markers[i].store === store) {
-          this.markers[i].setMap();
-          break;
-        }
-      }
-      this.markers.splice(i, 1);
+      this.markers[store.id].setMap();
+      delete this.markers[store.id];
     },
-    selectMarker: function() {
+    selectStoreMarker: function(store) {
+      this.map.panTo(this.markers[store.id].getPosition());
+      var view = new StoreInfo({model: store, el: $('#infopane')});
     }
   });
 
   //App view
   window.AppView = Backbone.View.extend({
-    el: $("#app"),
-    events: { "keypress #address-input" : "createOnEnter",
-              "click #find"             : "findMe" },
+    el: $('#app'),
+    events: { 'keypress #address-input' : 'createOnEnter',
+              'click #find'             : 'findMe' },
     initialize: function() {
-      this.input = this.$("#address-input");
+      this.input = this.$('#address-input');
       Stores.bind('add', this.addOne, this);
       Stores.bind('all', this.render, this);
     },
@@ -131,12 +165,13 @@ $(function() {
     },
     addOne: function(store) {
       var view = new StoreView({model: store});
-      this.$("#results-list").append(view.render().el);
+      this.$('#results-list').append(view.render().el);
     },
     findMe: function() {
       var self = this;
-      console.log("searching for user's location");
+      console.log('searching for user\'s location');
       //geolocate
+      $('#find').attr('disabled', true);
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
           var pos = new google.maps.LatLng(position.coords.latitude,
@@ -146,10 +181,13 @@ $(function() {
             if (status == google.maps.GeocoderStatus.OK) {
               if (results[0]) {
                 console.log(results);
-                console.log(results[0].formatted_address);
                 self.create(results[0].formatted_address);
-              } else {
-                console.log("failed due to " + status);
+                App.bind('storeLocComplete', function() {
+                  $('#find').attr('disabled', false);
+                });
+                } else {
+                console.log('failed due to ' + status);
+                $('#find').attr('disabled', false);
               }
             }
           });
@@ -166,6 +204,7 @@ $(function() {
           var content = 'Error: Your browser doesn\'t support geolocation.';
         }        
         console.log(content);
+        $('#find').attr('disabled', false);
       }
       
     },
@@ -178,23 +217,22 @@ $(function() {
     create: function(text) {
       this.clear();
       var self = this;
-      console.log("requesting address: "+text);
-      text = "address="+text;
+      console.log('requesting address: '+text);
+      text = 'address='+text;
       $.ajax({
-        type: "POST",
-        url: "scripts/geo.php",
+        type: 'POST',
+        url: 'scripts/geo.php',
         data: text,
         success: function(response, textStatus, jqXHR) {
           console.log(response);
-          if (response.indexOf("none") != -1) { 
-            console.log("no results returned");
-          } else if (response.indexOf("invalid") != -1) {
-            console.log("invalid request");
-          } else if (response.indexOf("other") != -1) { 
-            console.log("other issue");
+          if (response.indexOf('none') != -1) { 
+            console.log('no results returned');
+          } else if (response.indexOf('invalid') != -1) {
+            console.log('invalid request');
+          } else if (response.indexOf('other') != -1) { 
+            console.log('other issue');
           } else {
             var responseObj = $.parseJSON(response);
-            console.log(self);
             self.trigger('locateStores', responseObj.splice(0,1)[0]);
             for (var x in responseObj) {
               Stores.create(responseObj[x]);
@@ -205,11 +243,12 @@ $(function() {
           console.log(textStatus);
         },
         complete: function() {
+          self.trigger('storeLocComplete');
         }
       });
     },
     clear: function() {
-      _.each(Stores.these(),function(m){ m.destroy(); });
+      _.each(Stores.these(), function(m) {m.destroy();});
       return false;
     }
   });
