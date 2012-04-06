@@ -19,7 +19,13 @@
       }
       html { height: 100% }
       body { height: 100% }
-      #map { position: absolute; height: 100%; width: 80%; right: 0px; top: 0px }
+      #map {
+        position: absolute;
+        height: 100%;
+        right: 0px;
+        left: 270px;
+        top: 0px;
+      }
       #app {
         position: absolute;
         top: 20px;
@@ -29,7 +35,20 @@
         padding: 10px;
       }
       .content {
-      } 
+      }
+      .times dl { 
+        padding: 10px 0px;
+        height: 160px;
+      }
+      dt {
+        float: left;
+        clear: both;
+      }
+      dd {
+        border-left: 1px solid #444;
+        float: right;
+        padding: 0px 7px;
+      }
     </style>
   </head>
   <body>
@@ -75,10 +94,19 @@
           <p>Phone: <%= storePhone %></p>
           <p><%= storeTimeInfo %></p>
           <div class="times">
-            
+            <dl>
+              <% _.each(times, function(hours) { %>
+                <%= hours_template({ hours: hours }) %>
+              <% }); %>
+            </dl>  
           </div>
         </div>
       </div>
+    </script>
+    
+    <script type="text/template" id="hours-template">
+      <dt><%= hours.day %></dt>
+      <dd><%= hours.open %> - <%= hours.close %></dd>
     </script>
   </body>
 </html>
