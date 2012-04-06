@@ -7,6 +7,7 @@ $decdata = json_decode($data);
 $arr = get_object_vars($decdata);
 $status = $arr["status"];
 $postal = "";
+$days = array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
 $pos = array();
 if ($status == "OK") {
   $arr = $arr["results"];
@@ -62,22 +63,15 @@ if ($postal != "") {
       break;
       case "user8":
         preg_match_all("/([0-9]{2}:[0-9]{2})/",$matches[2][$i],$times_uf);
-      $times = array();
-      $times[0]['open'] = $times_uf[0][0];
-      $times[0]['close'] = $times_uf[0][1];
-      $times[1]['open'] = $times_uf[0][2];
-      $times[1]['close'] = $times_uf[0][3];
-      $times[2]['open'] = $times_uf[0][4];
-      $times[2]['close'] = $times_uf[0][5];
-      $times[3]['open'] = $times_uf[0][6];
-      $times[3]['close'] = $times_uf[0][7];
-      $times[4]['open'] = $times_uf[0][8];
-      $times[4]['close'] = $times_uf[0][9];
-      $times[5]['open'] = $times_uf[0][10];
-      $times[5]['close'] = $times_uf[0][11];
-      $times[6]['open'] = $times_uf[0][12];
-      $times[6]['close'] = $times_uf[0][13];
-      $stores[$current_index]['times'] = $times;
+        $times = array();
+        for ($j = 0; $j < 7; $j++) {
+          $times[$j] = array(
+            'open' => $times_uf[0][$j * 2],
+            'close' => $times_uf[0][$j * 2 + 1],
+            'day' => $days[$j]
+            );
+        }
+        $stores[$current_index]['times'] = $times;
       break;
     }
   }
