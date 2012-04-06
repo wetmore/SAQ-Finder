@@ -77,7 +77,7 @@ $(function() {
   window.StoreInfo = Backbone.View.extend({
     template: null,
     timeInt: null,
-    timeInfo: 'empty',
+    timeInfo: '',
     initialize: function() {
       $(this.el).hide();
       var self = this;
@@ -96,27 +96,32 @@ $(function() {
           return parseInt(hr) * 60 + parseInt(min);
         };
         var minsToClose = mins(closeHr, closeMin) - mins(curHr, curMin);
+        var minsToOpen = mins(curHr, curMin) - mins(openHr, openMin);
         if (self.model.get('open') && minsToClose < 8 * 60) {
           var hours = Math.floor(minsToClose / 60);
           var min = minsToClose % 60;
           self.timeInfo = 'Closes in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render(self);
-        }
-        var minsToOpen = mins(curHr, curMin) - mins(openHr, openMin);
-        if (!self.model.get('open') && minsToOpen < 1 * 60) {
+        } else if (!self.model.get('open') && minsToOpen < 1 * 60) {
           var hours = Math.floor(minsToOpen / 60);
           var min = minsToOpen % 60;
           self.timeInfo = 'Opens in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render(self);
+        } else {
+          self.render(self);
         }
+        
       }(); // execute immediately
       this.timeInt = setInterval(checkCriticalTimes, 20000);
     },
     render: function(ctx) {
+      
       var variables = {
         storeType: ctx.model.get('type'),
         storePhone: ctx.model.get('phone'),
-        storeTimeInfo: ctx.timeInfo
+        storeTimeInfo: ctx.timeInfo,
+        times: ctx.model.get('times'),
+        hours_template: _.template($('#hours-template').html())
       }
       
       this.template = _.template($('#infopane-template').html(), variables),
@@ -132,18 +137,24 @@ $(function() {
     view: null,
     markers: {},
     locMarker: null,
+    bounds: new google.maps.LatLngBounds(
+      new google.maps.LatLng(44.9913580, -79.76279860),
+      new google.maps.LatLng(62.58305530, -57.1054860)
+    ),
     initialize: function() {
       Stores.bind('add', this.addStoreMarker, this);
       Stores.bind('remove', this.remStoreMarker, this);
       App.bind('locateStores', this.addLocMarker, this);
       var options = {
-        center: new google.maps.LatLng(45.509475, -73.577328),
-        zoom: 14,
+        center: this.bounds.getCenter(),
         mapTypeId: google.maps.MapTypeId.ROADMAP
       };
       this.map = new google.maps.Map(this.el[0], options);
+      this.map.fitBounds(this.bounds);
     },
     render: function() {
+      this.map.setCenter(this.bounds.getCenter());
+      this.map.fitBounds(this.bounds);
       return this;
     },
     addLocMarker: function(pos) {
@@ -160,7 +171,10 @@ $(function() {
         var ltlng = self.locMarker.getPosition();
         App.create(ltlng.lat() + ',' + ltlng.lng());
       });
-      this.map.panTo(this.locMarker.getPosition());
+      this.bounds = new google.maps.LatLngBounds();
+      //TODO extend bounds      
+      //this.render();
+      //this.map.panTo(this.locMarker.getPosition());
     },
     addStoreMarker: function(store) {
       var self = this;
@@ -174,6 +188,8 @@ $(function() {
       google.maps.event.addListener(this.markers[store.id], 'click', function() {
         store.set({'selected': true});
       });
+      this.bounds.extend(this.markers[store.id].getPosition());
+      this.render();
     },
     remStoreMarker: function(store) {
       this.markers[store.id].setMap();
