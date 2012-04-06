@@ -96,31 +96,32 @@ $(function() {
           return parseInt(hr) * 60 + parseInt(min);
         };
         var minsToClose = mins(closeHr, closeMin) - mins(curHr, curMin);
-        var minsToOpen = mins(curHr, curMin) - mins(openHr, openMin);
+        var minsToOpen = mins(openHr, openMin) - mins(curHr, curMin);
         if (self.model.get('open') && minsToClose < 8 * 60) {
           var hours = Math.floor(minsToClose / 60);
           var min = minsToClose % 60;
           self.timeInfo = 'Closes in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
-          self.render(self);
+          self.render();
         } else if (!self.model.get('open') && minsToOpen < 1 * 60) {
           var hours = Math.floor(minsToOpen / 60);
           var min = minsToOpen % 60;
           self.timeInfo = 'Opens in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
-          self.render(self);
+          self.render();
         } else {
-          self.render(self);
+          self.render();
         }
         
-      }(); // execute immediately
+      };
+      checkCriticalTimes();
       this.timeInt = setInterval(checkCriticalTimes, 20000);
     },
-    render: function(ctx) {
-      
+    render: function() {
+      this.trigger('render');
       var variables = {
-        storeType: ctx.model.get('type'),
-        storePhone: ctx.model.get('phone'),
-        storeTimeInfo: ctx.timeInfo,
-        times: ctx.model.get('times'),
+        storeType: this.model.get('type'),
+        storePhone: this.model.get('phone'),
+        storeTimeInfo: this.timeInfo,
+        times: this.model.get('times'),
         hours_template: _.template($('#hours-template').html())
       }
       
@@ -196,6 +197,7 @@ $(function() {
       delete this.markers[store.id];
     },
     selectStoreMarker: function(store) {
+      var self = this;
       this.map.panTo(this.markers[store.id].getPosition());
       if (this.view !== null) {
         clearInterval(this.view.timeInt);
@@ -204,6 +206,9 @@ $(function() {
         this.infoWindow.close();
       }
       this.view = new StoreInfo({model: store, el: $('#infopane')});
+      this.view.bind('render', function() {
+        self.infoWindow.setContent($('#infopane').html());
+      });
       this.infoWindow.setContent($('#infopane').html());
       this.infoWindow.open(this.map, this.markers[store.id]);
     }
