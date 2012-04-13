@@ -36,7 +36,7 @@
       </div>
     </div>
 
-    <div id="infopane"></div>
+    <div id="infopane-container"></div>
     
     <div id="map"></div>
 
@@ -55,8 +55,9 @@
         <span class="title">SAQ <%= storeType %></span>
         <div class="info-body">
           <p>Phone: <%= storePhone %></p>
-          <p><%= storeTimeInfo %></p>
-          <div class="times">
+          <p class="store-time-info"><%= storeTimeInfo %></p>
+          <p class="times-head">Hours</p>
+          <div class="times-body">
             <dl>
               <% _.each(times, function(hours) { %>
                 <%= hours_template({ hours: hours }) %>
@@ -69,7 +70,11 @@
     
     <script type="text/template" id="hours-template">
       <dt><%= hours.day %></dt>
+      <% if (hours.open === 'F') { %>
+      <dd>Closed</dd>
+      <% } else { %>
       <dd><%= hours.open %> - <%= hours.close %></dd>
+      <% } %>
     </script>
   </body>
 </html>
