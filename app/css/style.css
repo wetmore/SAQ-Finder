@@ -23,15 +23,20 @@ html, body {
 .content {
 }
 .times dl { 
-  padding: 10px 0px;
+  padding: 0px 10px;
   height: 160px;
 }
 dt {
   float: left;
   clear: both;
+  padding: 0;
+  margin: 0;
 }
 dd {
   border-left: 1px solid #444;
   float: right;
   padding: 0px 7px;
+}
+.store-time-info {
+  color: #ff0000;
 }
