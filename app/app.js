@@ -10,15 +10,19 @@ $(function() {
       var today = new Date();
       var open = this.get('times')[today.getDay()].open;
       var close = this.get('times')[today.getDay()].close;
-      var openHr = open.split(':')[0];
-      var openMin = open.split(':')[1];
-      var closeHr = close.split(':')[0];
-      var closeMin = close.split(':')[1];
-      var curHr = today.getHours();
-      var curMin = today.getMinutes();
-      var isOpen = ((curHr > openHr || (curHr == openHr && curMin >= openMin)) &&
-                    (curHr < closeHr || (curHr == closeHr && curMin < closeMin))
-                   );
+      if (open === 'F' || close === 'F') {
+        isOpen = false;
+      } else {
+        var openHr = open.split(':')[0];
+        var openMin = open.split(':')[1];
+        var closeHr = close.split(':')[0];
+        var closeMin = close.split(':')[1];
+        var curHr = today.getHours();
+        var curMin = today.getMinutes();
+        var isOpen = ((curHr > openHr || (curHr == openHr && curMin >= openMin)) &&
+                      (curHr < closeHr || (curHr == closeHr && curMin < closeMin))
+                     );
+      }
       this.set({open: isOpen});
     }
   });
@@ -76,10 +80,12 @@ $(function() {
   //Store info view (used in popup info pane on map)
   window.StoreInfo = Backbone.View.extend({
     template: null,
+    id: 'infopane',
     timeInt: null,
     timeInfo: '',
     initialize: function() {
-      $(this.el).hide();
+      $('#infopane-container').append(this.el);
+      //$(this.el).hide();
       var self = this;
       // every 20 seconds, check if the store is near closing or opening.
       var checkCriticalTimes = function() {
@@ -113,7 +119,7 @@ $(function() {
         
       };
       checkCriticalTimes();
-      this.timeInt = setInterval(checkCriticalTimes, 20000);
+      this.timeInt = setInterval(checkCriticalTimes, 1000);
     },
     render: function() {
       this.trigger('render');
@@ -124,9 +130,8 @@ $(function() {
         times: this.model.get('times'),
         hours_template: _.template($('#hours-template').html())
       }
-      
       this.template = _.template($('#infopane-template').html(), variables),
-      this.el.html(this.template);
+      $(this.el).html(this.template);
       return this;
     }
   });
@@ -205,11 +210,8 @@ $(function() {
       if (this.infoWindow !== null) {
         this.infoWindow.close();
       }
-      this.view = new StoreInfo({model: store, el: $('#infopane')});
-      this.view.bind('render', function() {
-        self.infoWindow.setContent($('#infopane').html());
-      });
-      this.infoWindow.setContent($('#infopane').html());
+      this.view = new StoreInfo({model: store});
+      this.infoWindow.setContent($('#infopane')[0]);
       this.infoWindow.open(this.map, this.markers[store.id]);
     }
   });
