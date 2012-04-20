@@ -1,29 +1,58 @@
-$(function() {
-  
+$(function() { 
   //SAQ model
   window.Saq = Backbone.Model.extend({
+    timeout: null,
     initialize: function() {
-      this.checkIfOpen();
+      var self = this;
+      var checkIfOpen = function() {
+        var today = new Date();
+        var open = self.get('times')[today.getDay()].open;
+        var close = self.get('times')[today.getDay()].close;
+        var closedForDay = false;
+        if (open === 'F' || close === 'F') {
+          isOpen = false;
+          closedForDay = true;
+        } else {
+          var openHr = parseInt(open.split(':')[0], 10);
+          var openMin = parseInt(open.split(':')[1], 10);
+          var closeHr = parseInt(close.split(':')[0], 10);
+          var closeMin = parseInt(close.split(':')[1], 10);
+          var curHr = today.getHours();
+          var curMin = today.getMinutes();
+          var isOpen = ((curHr > openHr || (curHr == openHr && curMin >= openMin)) &&
+                        (curHr < closeHr || (curHr == closeHr && curMin < closeMin))
+                       );
+        }
+        self.set({open: isOpen});
+        if (curHr > closeHr || (curHr == closeHr && curMin >= closeMin)) {
+          closedForDay = true;
+        }
+        if (isOpen) {
+          var closeDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(),
+                                   closeHr, closeMin);
+          timeTilUpdate = closeDate.getTime() - Date.now();
+        } else if (!closedForDay) {
+          var openDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(),
+                                   openHr, openMin);
+          timeTilUpdate = openDate.getTime() - Date.now();
+        } else {
+          tomorrow = (today.getDay() + 1) % 7;
+          var midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate(),
+                                    23, 59, 59);
+          timeTilUpdate = midnight.getTime() - Date.now() + 2*60*1000;
+        }
+        if (timeTilUpdate < 0) {
+          console.error('Time until update is negative: ' + timeTilUpdate);
+        } else {
+          self.timeout = setTimeout(checkIfOpen, timeTilUpdate);
+        }
+      }
+      checkIfOpen();
       this.set({selected: false});
     },
-    checkIfOpen: function() {
-      var today = new Date();
-      var open = this.get('times')[today.getDay()].open;
-      var close = this.get('times')[today.getDay()].close;
-      if (open === 'F' || close === 'F') {
-        isOpen = false;
-      } else {
-        var openHr = open.split(':')[0];
-        var openMin = open.split(':')[1];
-        var closeHr = close.split(':')[0];
-        var closeMin = close.split(':')[1];
-        var curHr = today.getHours();
-        var curMin = today.getMinutes();
-        var isOpen = ((curHr > openHr || (curHr == openHr && curMin >= openMin)) &&
-                      (curHr < closeHr || (curHr == closeHr && curMin < closeMin))
-                     );
-      }
-      this.set({open: isOpen});
+    remove: function() {
+      clearTimeout(this.timeout);
+      this.destroy();
     }
   });
 
@@ -37,7 +66,7 @@ $(function() {
   });
 
   window.Stores = new StoreList;
-  
+
   //Store view
   window.StoreView = Backbone.View.extend({
     tagName: 'li',
@@ -45,6 +74,7 @@ $(function() {
     events: { 'click div.store-info' : 'showDetails' },
     initialize: function() {
       this.model.bind('change:selected', this.handleSelection, this);
+      this.model.bind('change:open', this.setText, this);
       this.model.bind('destroy', this.remove, this);
     },
     render: function() {
@@ -82,13 +112,11 @@ $(function() {
     template: null,
     id: 'infopane',
     timeInt: null,
-    timeInfo: '',
     initialize: function() {
       $('#infopane-container').append(this.el);
-      //$(this.el).hide();
       var self = this;
-      // every 20 seconds, check if the store is near closing or opening.
-      var checkCriticalTimes = function() {
+        var checkCriticalTimes = function() {
+        var firstCall = (self.timeInfo === undefined);
         var today = new Date();
         var open = self.model.get('times')[today.getDay()].open;
         var close = self.model.get('times')[today.getDay()].close;
@@ -99,7 +127,7 @@ $(function() {
         var curHr = today.getHours();
         var curMin = today.getMinutes();
         var mins = function(hr, min) {
-          return parseInt(hr) * 60 + parseInt(min);
+          return parseInt(hr, 10) * 60 + parseInt(min, 10);
         };
         var minsToClose = mins(closeHr, closeMin) - mins(curHr, curMin);
         var minsToOpen = mins(openHr, openMin) - mins(curHr, curMin);
@@ -108,18 +136,24 @@ $(function() {
           var min = minsToClose % 60;
           self.timeInfo = 'Closes in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render();
-        } else if (!self.model.get('open') && minsToOpen < 1 * 60) {
+        } else if (!self.model.get('open') && minsToOpen < 1 * 60 && minsToOpen > 0) {
           var hours = Math.floor(minsToOpen / 60);
           var min = minsToOpen % 60;
           self.timeInfo = 'Opens in ' + hours + ':' + ((min < 10) ? '0' : '') + min;
           self.render();
         } else {
+          self.timeInfo = '';
           self.render();
         }
-        
+        if (!firstCall) {
+          self.timeInt = setTimeout(checkCriticalTimes, 60000);
+        }
       };
       checkCriticalTimes();
-      this.timeInt = setInterval(checkCriticalTimes, 1000);
+
+      var d = new Date();
+      var nextMin = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()+1);
+      this.timeInt = setTimeout(checkCriticalTimes, nextMin.getTime() - Date.now());
     },
     render: function() {
       this.trigger('render');
@@ -178,7 +212,7 @@ $(function() {
         App.create(ltlng.lat() + ',' + ltlng.lng());
       });
       this.bounds = new google.maps.LatLngBounds();
-      //TODO extend bounds      
+      //TODO extend bounds
       //this.render();
       //this.map.panTo(this.locMarker.getPosition());
     },
@@ -196,6 +230,9 @@ $(function() {
       });
       this.bounds.extend(this.markers[store.id].getPosition());
       this.render();
+      store.bind('change:open', function() {
+        self.markers[store.id].styleIcon.set('color', (store.get('open') ? '8ab846' : 'fb4f4f'));
+      });
     },
     remStoreMarker: function(store) {
       this.markers[store.id].setMap();
@@ -205,7 +242,7 @@ $(function() {
       var self = this;
       this.map.panTo(this.markers[store.id].getPosition());
       if (this.view !== null) {
-        clearInterval(this.view.timeInt);
+        clearTimeout(this.view.timeInt);
       }
       if (this.infoWindow !== null) {
         this.infoWindow.close();
@@ -268,11 +305,10 @@ $(function() {
           var content = 'Error: The geolocation service failed.';
         } else {
           var content = 'Error: Your browser doesn\'t support geolocation.';
-        }        
+        }
         console.log(content);
         $('#find').attr('disabled', false);
       }
-      
     },
     createOnEnter: function(e) {
       var text = this.input.val();
@@ -292,11 +328,11 @@ $(function() {
         data: text,
         success: function(response, textStatus, jqXHR) {
           console.log(response);
-          if (response.indexOf('none') != -1) { 
+          if (response.indexOf('none') != -1) {
             console.log('no results returned');
           } else if (response.indexOf('invalid') != -1) {
             console.log('invalid request');
-          } else if (response.indexOf('other') != -1) { 
+          } else if (response.indexOf('other') != -1) {
             console.log('other issue');
           } else {
             var responseObj = $.parseJSON(response);
@@ -315,7 +351,9 @@ $(function() {
       });
     },
     clear: function() {
-      _.each(Stores.these(), function(m) {m.destroy();});
+      _.each(Stores.these(), function(m) {
+        m.remove();
+      });
       return false;
     }
   });
