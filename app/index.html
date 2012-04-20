@@ -58,23 +58,25 @@
           <p class="store-time-info"><%= storeTimeInfo %></p>
           <p class="times-head">Hours</p>
           <div class="times-body">
-            <dl>
+            <table>
               <% _.each(times, function(hours) { %>
                 <%= hours_template({ hours: hours }) %>
               <% }); %>
-            </dl>  
+            </table>  
           </div>
         </div>
       </div>
     </script>
     
     <script type="text/template" id="hours-template">
-      <dt><%= hours.day %></dt>
+      <tr>
+      <td><%= hours.day %></td>
       <% if (hours.open === 'F') { %>
-      <dd>Closed</dd>
+      <td>Closed</td>
       <% } else { %>
-      <dd><%= hours.open %> - <%= hours.close %></dd>
+      <td><%= hours.open %> - <%= hours.close %></td>
       <% } %>
+      </tr>
     </script>
   </body>
 </html>
