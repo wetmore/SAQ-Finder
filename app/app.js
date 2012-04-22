@@ -71,7 +71,7 @@ $(function() {
   window.StoreView = Backbone.View.extend({
     tagName: 'li',
     template: _.template($('#store-template').html()),
-    events: { 'click div.store-info' : 'showDetails' },
+    events: { 'click div.store-info' : 'selectStore' },
     initialize: function() {
       this.model.bind('change:selected', this.handleSelection, this);
       this.model.bind('change:open', this.setText, this);
@@ -84,12 +84,16 @@ $(function() {
     },
     setText: function() {
       var hours = this.model.get('times')[new Date().getDay()];
-      var hoursInfo = hours.open + ' - ' + hours.close;
-      var text = this.model.get('type') + ': ' + hoursInfo + (this.model.get('open')?'':' (closed)');
+      if (hours.open !== 'F') {
+        var hoursInfo = hours.open + ' - ' + hours.close;
+        var text = this.model.get('type') + ': ' + hoursInfo + (this.model.get('open')?'':' (closed)');
+      } else {
+        var text = this.model.get('type') + ': closed all day';
+      }
       // TODO: comment me
       ((this.$)('.store-info')).text(text);
     },
-    showDetails: function() {
+    selectStore: function() {
       this.model.set({'selected': true});
     },
     handleSelection: function() {
@@ -97,7 +101,6 @@ $(function() {
         _.each(Stores.these(), function(store) {
           if (store !== this.model)
             store.set({selected: false});
-            
         });
         Map.selectStoreMarker(this.model);
       }
@@ -112,6 +115,7 @@ $(function() {
     template: null,
     id: 'infopane',
     timeInt: null,
+    events: {'click #walk': 'route'},
     initialize: function() {
       $('#infopane-container').append(this.el);
       var self = this;
@@ -155,6 +159,9 @@ $(function() {
       var nextMin = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()+1);
       this.timeInt = setTimeout(checkCriticalTimes, nextMin.getTime() - Date.now());
     },
+    route: function() {
+      Map.calcRoute(this.model);
+    },
     render: function() {
       this.trigger('render');
       var variables = {
@@ -177,6 +184,10 @@ $(function() {
     view: null,
     markers: {},
     locMarker: null,
+    dirRenderer: new google.maps.DirectionsRenderer({
+      suppressMarkers: true
+    }),
+    dirService: new google.maps.DirectionsService(),
     bounds: new google.maps.LatLngBounds(
       new google.maps.LatLng(44.9913580, -79.76279860),
       new google.maps.LatLng(62.58305530, -57.1054860)
@@ -199,6 +210,7 @@ $(function() {
     },
     addLocMarker: function(pos) {
       var self = this;
+      this.clearRoute();
       if (this.locMarker !== null)
         this.locMarker.setMap();
       this.locMarker = new StyledMarker({
@@ -250,6 +262,27 @@ $(function() {
       this.view = new StoreInfo({model: store});
       this.infoWindow.setContent($('#infopane')[0]);
       this.infoWindow.open(this.map, this.markers[store.id]);
+    },
+    calcRoute: function(store) {
+      var self = this;
+      this.infoWindow.close();
+      var start = this.locMarker.getPosition();
+      var end = this.markers[store.id].getPosition();
+      var request = {
+        origin: start,
+        destination: end,
+        travelMode: google.maps.TravelMode.WALKING
+      };
+      this.dirService.route(request, function (result, status) {
+        if (status == google.maps.DirectionsStatus.OK) {
+          self.dirRenderer.setDirections(result);
+        }
+      });
+      this.dirRenderer.setMap(this.map);
+    },
+    clearRoute: function() {
+      this.dirRenderer.setMap(null);
+      this.render();
     }
   });
 
@@ -259,6 +292,7 @@ $(function() {
     events: { 'keypress #address-input' : 'createOnEnter',
               'click #find'             : 'findMe' },
     initialize: function() {
+      $('#loader').hide();
       this.input = this.$('#address-input');
       Stores.bind('add', this.addOne, this);
       Stores.bind('all', this.render, this);
@@ -288,7 +322,7 @@ $(function() {
                 App.bind('storeLocComplete', function() {
                   $('#find').attr('disabled', false);
                 });
-                } else {
+              } else {
                 console.log('failed due to ' + status);
                 $('#find').attr('disabled', false);
               }
@@ -318,6 +352,7 @@ $(function() {
     },
     create: function(text) {
       $('#find').attr('disabled', true);
+      $('#loader').show();
       this.clear();
       var self = this;
       console.log('requesting address: '+text);
@@ -346,6 +381,7 @@ $(function() {
           console.log(textStatus);
         },
         complete: function() {
+          $('#loader').hide();
           self.trigger('storeLocComplete');
         }
       });
