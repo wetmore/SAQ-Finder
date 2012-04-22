@@ -1,4 +1,7 @@
 <?php
+//parameters
+$resultsNum = 10;
+//program
 $addressraw = $_POST['address'];
 $address = urlencode($addressraw);
 $url = "http://maps.googleapis.com/maps/api/geocode/json?address=" . $address . "&sensor=true";
@@ -22,7 +25,7 @@ if ($status == "OK") {
   echo "other";
 }
 if (sizeof($pos) != 0) {
-  $url = "http://www.saq.com/webapp/wcs/stores/servlet/RechercheSuccursale?langId=-1&storeId=10001&catalogId=10001&country=CA&latitude=" . $pos[0] . "&longitude=" . $pos[1] . "&transaction=search&searchQuantifier=AND&radius=10&maxSearchResults=5&units=km";
+  $url = "http://www.saq.com/webapp/wcs/stores/servlet/RechercheSuccursale?langId=-1&storeId=10001&catalogId=10001&country=CA&latitude=" . $pos[0] . "&longitude=" . $pos[1] . "&transaction=search&searchQuantifier=AND&radius=10&maxSearchResults=" . $resultsNum . "&units=km";
   $stores = array();
   $stores[0] = $pos;
   $page = file_get_contents($url);
